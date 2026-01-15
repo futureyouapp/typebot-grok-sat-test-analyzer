@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'Missing file_url or prompt' });
   }
 
-  const GROK_API_KEY = 'xai-q93LBDfHTxqAeIzimEue2mtRI3HscsQ5BUP58TqeTGIe6DfJD6lRtyfcClt2O3MY0dLWVJrT7cjXFxWM'; // ← REPLACE THIS WITH YOUR REAL GROK API KEY
+  const GROK_API_KEY = process.env.XAI_API_KEY; // ← REPLACE THIS WITH YOUR REAL GROK API KEY
 
   const GROK_BASE = 'https://api.x.ai/v1';
 
