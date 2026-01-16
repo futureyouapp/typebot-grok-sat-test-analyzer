@@ -66,7 +66,7 @@ module.exports = async (req, res) => {
     const { id: fileId } = await uploadRes.json();
     console.log('File uploaded to Grok, ID:', fileId);
 
-    // Analyze – attach file inside messages using file_ids
+    // Analyze with chat completions – use content array format for attachment
     console.log('Starting analysis...');
     const analysisRes = await fetch(`${GROK_BASE}/chat/completions`, {
       method: 'POST',
@@ -79,8 +79,10 @@ module.exports = async (req, res) => {
         messages: [
           {
             role: 'user',
-            content: prompt,
-            file_ids: [fileId]   // ← This is the change: file_ids inside the user message
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'file', file_id: fileId }  // ← This is the change: content array with file type
+            ]
           }
         ]
       }),
