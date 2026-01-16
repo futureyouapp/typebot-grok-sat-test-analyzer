@@ -75,17 +75,17 @@ module.exports = async (req, res) => {
         Authorization: `Bearer ${XAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'grok-beta',  // Change to 'grok-4-fast' or latest vision model if you prefer
+        model: 'grok-4-fast-reasoning',  // ← Updated: Current vision/reasoning model (Jan 2026). Alternatives: 'grok-4', 'grok-4-latest', 'grok-3'
         messages: [
           {
             role: 'user',
             content: prompt,
-            file: fileId   // ← This attaches the file and enables document_search
+            file: fileId   // Attaches the file and enables document_search
           }
         ],
-        // Optional: add temperature, max_tokens, etc. if needed
-        // temperature: 0.7,
-        // max_tokens: 2048
+        // Optional: adjust for longer outputs or cost
+        // max_tokens: 4096,
+        // temperature: 0.7
       }),
     });
 
