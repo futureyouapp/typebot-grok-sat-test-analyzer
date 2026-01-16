@@ -1,5 +1,5 @@
 {
-  "name": "typebot-grok-sat-analyzer",
+  "name": "typebot-grok-sat-test-analyzer",
   "version": "1.0.0",
   "dependencies": {
     "node-fetch": "^2.7.0",
