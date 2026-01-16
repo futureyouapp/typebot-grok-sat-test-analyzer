@@ -2,7 +2,6 @@ const fetch = require('node-fetch');
 const FormData = require('form-data');
 
 module.exports = async (req, res) => {
-  // Handle CORS preflight (OPTIONS request from browsers/Typebot)
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -10,7 +9,6 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
-  // Only allow POST (and OPTIONS already handled)
   if (req.method !== 'POST') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     return res.status(405).json({ error: 'Method not allowed' });
@@ -35,7 +33,6 @@ module.exports = async (req, res) => {
     console.log('Received request with file_url:', file_url);
     console.log('Prompt length:', prompt.length);
 
-    // Download the PDF from Typebot's temporary URL
     const fileRes = await fetch(file_url);
     console.log('File fetch status:', fileRes.status, 'from URL:', file_url);
 
@@ -47,7 +44,6 @@ module.exports = async (req, res) => {
     const buffer = await fileRes.buffer();
     const filename = file_url.split('/').pop() || 'document.pdf';
 
-    // Upload to Grok Files API
     const form = new FormData();
     form.append('file', buffer, { filename, contentType: 'application/pdf' });
 
@@ -66,7 +62,6 @@ module.exports = async (req, res) => {
     const { id: fileId } = await uploadRes.json();
     console.log('File uploaded to Grok, ID:', fileId);
 
-    // Analyze – attach file at ROOT LEVEL of the request body
     console.log('Starting analysis...');
     const analysisRes = await fetch(`${GROK_BASE}/chat/completions`, {
       method: 'POST',
@@ -79,10 +74,12 @@ module.exports = async (req, res) => {
         messages: [
           {
             role: 'user',
-            content: prompt
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'document', document_id: fileId }  // ← Correct multi-part content format for document attachment
+            ]
           }
-        ],
-        files: [fileId]   // ← File attachment moved to root level
+        ]
       }),
     });
 
@@ -94,7 +91,6 @@ module.exports = async (req, res) => {
     const data = await analysisRes.json();
     const findings = data.choices?.[0]?.message?.content || 'No detailed analysis returned';
 
-    // Optional cleanup
     fetch(`${GROK_BASE}/files/${fileId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${XAI_API_KEY}` },
