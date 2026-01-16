@@ -66,7 +66,7 @@ module.exports = async (req, res) => {
     const { id: fileId } = await uploadRes.json();
     console.log('File uploaded to Grok, ID:', fileId);
 
-    // Analyze with chat completions – use content array format for attachment
+    // Analyze – use content array with file reference
     console.log('Starting analysis...');
     const analysisRes = await fetch(`${GROK_BASE}/chat/completions`, {
       method: 'POST',
@@ -81,7 +81,7 @@ module.exports = async (req, res) => {
             role: 'user',
             content: [
               { type: 'text', text: prompt },
-              { type: 'file', file_id: fileId }  // ← This is the change: content array with file type
+              { type: 'file', file_id: fileId }  // ← Content array attachment for file
             ]
           }
         ]
