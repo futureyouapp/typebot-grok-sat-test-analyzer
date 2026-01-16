@@ -66,7 +66,7 @@ module.exports = async (req, res) => {
     const { id: fileId } = await uploadRes.json();
     console.log('File uploaded to Grok, ID:', fileId);
 
-    // Analyze with chat completions + document_search
+    // Analyze with chat completions – attach file ID directly (triggers document_search automatically)
     console.log('Starting analysis...');
     const analysisRes = await fetch(`${GROK_BASE}/chat/completions`, {
       method: 'POST',
@@ -75,21 +75,29 @@ module.exports = async (req, res) => {
         Authorization: `Bearer ${XAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'grok-beta',  // change to 'grok-4-fast' or latest vision model if available
-        messages: [{ role: 'user', content: prompt }],
-        tools: [{ type: 'function', function: { name: 'document_search' } }],
-        tool_choice: 'auto',
+        model: 'grok-beta',  // Change to 'grok-4-fast' or latest vision model if you prefer
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+            file: fileId   // ← This attaches the file and enables document_search
+          }
+        ],
+        // Optional: add temperature, max_tokens, etc. if needed
+        // temperature: 0.7,
+        // max_tokens: 2048
       }),
     });
 
     if (!analysisRes.ok) {
-      throw new Error(`Analysis failed: ${analysisRes.status} - ${await analysisRes.text()}`);
+      const errText = await analysisRes.text();
+      throw new Error(`Analysis failed: ${analysisRes.status} - ${errText}`);
     }
 
     const data = await analysisRes.json();
     const findings = data.choices?.[0]?.message?.content || 'No detailed analysis returned';
 
-    // Optional cleanup
+    // Optional: clean up the uploaded file
     fetch(`${GROK_BASE}/files/${fileId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${XAI_API_KEY}` },
