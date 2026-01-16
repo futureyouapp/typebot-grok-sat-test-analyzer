@@ -69,22 +69,22 @@ module.exports = async (req, res) => {
     // Analyze – attach using file_ids at root level
     console.log('Starting analysis...');
     const analysisRes = await fetch(`${GROK_BASE}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${XAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'grok-4-fast-reasoning',
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        file_ids: [fileId]   // ← This is the change: file_ids at root level
-      }),
-    });
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${XAI_API_KEY}`,
+  },
+  body: JSON.stringify({
+    model: 'grok-4-fast-reasoning',
+    messages: [
+      {
+        role: 'user',
+        content: prompt + "\n\nPlease use the attached document to answer. Analyze the PDF file thoroughly."  // ← Added explicit instruction
+      }
+    ],
+    file_ids: [fileId]
+  }),
+});
 
     if (!analysisRes.ok) {
       const errText = await analysisRes.text();
