@@ -2,23 +2,48 @@ const fetch = require('node-fetch');
 const FormData = require('form-data');
 
 module.exports = async (req, res) => {
+  // Handle CORS preflight (OPTIONS request from browsers/Typebot)
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    return res.status(200).end();
+  }
+
+  // Only allow POST (and OPTIONS already handled)
   if (req.method !== 'POST') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { file_url, prompt } = req.body;
   if (!file_url || !prompt) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
     return res.status(400).json({ error: 'Missing file_url or prompt' });
   }
 
-  const GROK_API_KEY = process.env.XAI_API_KEY; // ← REPLACE THIS WITH YOUR REAL GROK API KEY
+  const XAI_API_KEY = process.env.XAI_API_KEY;
+  if (!XAI_API_KEY) {
+    console.error('XAI_API_KEY environment variable is not set');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    return res.status(500).json({ error: 'Server configuration error: API key missing' });
+  }
 
   const GROK_BASE = 'https://api.x.ai/v1';
 
   try {
+    console.log('Received request with file_url:', file_url);
+    console.log('Prompt length:', prompt.length);
+
     // Download the PDF from Typebot's temporary URL
     const fileRes = await fetch(file_url);
-    if (!fileRes.ok) throw new Error(`Failed to download file: ${fileRes.status}`);
+    console.log('File fetch status:', fileRes.status, 'from URL:', file_url);
+
+    if (!fileRes.ok) {
+      const errorText = await fileRes.text().catch(() => 'No response body');
+      throw new Error(`Failed to download file: ${fileRes.status} - ${errorText}`);
+    }
+
     const buffer = await fileRes.buffer();
     const filename = file_url.split('/').pop() || 'document.pdf';
 
@@ -26,9 +51,10 @@ module.exports = async (req, res) => {
     const form = new FormData();
     form.append('file', buffer, { filename, contentType: 'application/pdf' });
 
+    console.log('Uploading file to Grok Files API...');
     const uploadRes = await fetch(`${GROK_BASE}/files`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${GROK_API_KEY}` },
+      headers: { Authorization: `Bearer ${XAI_API_KEY}` },
       body: form,
     });
 
@@ -38,36 +64,45 @@ module.exports = async (req, res) => {
     }
 
     const { id: fileId } = await uploadRes.json();
+    console.log('File uploaded to Grok, ID:', fileId);
 
-    // Analyze the document
+    // Analyze with chat completions + document_search
+    console.log('Starting analysis...');
     const analysisRes = await fetch(`${GROK_BASE}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${GROK_API_KEY}`,
+        Authorization: `Bearer ${XAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'grok-beta',  // Or 'grok-4-fast' / latest multimodal model – check x.ai docs
+        model: 'grok-beta',  // change to 'grok-4-fast' or latest vision model if available
         messages: [{ role: 'user', content: prompt }],
         tools: [{ type: 'function', function: { name: 'document_search' } }],
         tool_choice: 'auto',
       }),
     });
 
-    if (!analysisRes.ok) throw new Error(`Analysis failed: ${analysisRes.status}`);
+    if (!analysisRes.ok) {
+      throw new Error(`Analysis failed: ${analysisRes.status} - ${await analysisRes.text()}`);
+    }
 
     const data = await analysisRes.json();
     const findings = data.choices?.[0]?.message?.content || 'No detailed analysis returned';
 
-    // Clean up (optional but good practice)
+    // Optional cleanup
     fetch(`${GROK_BASE}/files/${fileId}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${GROK_API_KEY}` },
+      headers: { Authorization: `Bearer ${XAI_API_KEY}` },
     }).catch(() => {});
 
+    console.log('Analysis complete. Findings length:', findings.length);
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.status(200).json({ findings });
+
   } catch (err) {
-    console.error(err);
+    console.error('Error in handler:', err.message, err.stack);
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.status(500).json({ error: err.message || 'Internal server error' });
   }
 };
