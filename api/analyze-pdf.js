@@ -66,7 +66,7 @@ module.exports = async (req, res) => {
     const { id: fileId } = await uploadRes.json();
     console.log('File uploaded to Grok, ID:', fileId);
 
-    // Analyze with chat completions – attach file ID as array (triggers document_search automatically)
+    // Analyze – attach file at ROOT LEVEL of the request body
     console.log('Starting analysis...');
     const analysisRes = await fetch(`${GROK_BASE}/chat/completions`, {
       method: 'POST',
@@ -75,17 +75,14 @@ module.exports = async (req, res) => {
         Authorization: `Bearer ${XAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'grok-4-fast-reasoning',  // Updated model
+        model: 'grok-4-fast-reasoning',
         messages: [
           {
             role: 'user',
-            content: prompt,
-            files: [fileId]   // ← Corrected: Use 'files' as array of IDs
+            content: prompt
           }
         ],
-        // Optional: adjust for longer outputs if needed
-        // max_tokens: 4096,
-        // temperature: 0.7
+        files: [fileId]   // ← File attachment moved to root level
       }),
     });
 
@@ -97,7 +94,7 @@ module.exports = async (req, res) => {
     const data = await analysisRes.json();
     const findings = data.choices?.[0]?.message?.content || 'No detailed analysis returned';
 
-    // Optional: clean up the uploaded file
+    // Optional cleanup
     fetch(`${GROK_BASE}/files/${fileId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${XAI_API_KEY}` },
